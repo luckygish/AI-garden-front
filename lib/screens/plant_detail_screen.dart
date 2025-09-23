@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../models/plant.dart';
 import '../models/care_event.dart';
+import '../models/user.dart';
 import 'feeding_schedule_screen.dart';
 import 'care_guide_screen.dart';
 import 'plant_usage_screen.dart';
+import 'care_plan_details_screen.dart';
 
 class PlantDetailScreen extends StatelessWidget {
   final Plant plant;
   final List<CareEvent> careEvents;
+  final User user;
 
   const PlantDetailScreen({
     super.key,
     required this.plant,
     required this.careEvents,
+    required this.user,
   });
 
   @override
@@ -38,23 +43,14 @@ class PlantDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Герой-секция
             _buildHeroSection(),
             const SizedBox(height: 20),
-
-            // Ближайшие мероприятия
             _buildNextCareEvent(context),
             const SizedBox(height: 24),
-
-            // Описание и особенности
             _buildDescriptionSection(),
             const SizedBox(height: 24),
-
-            // Полезные ссылки
             _buildUsefulLinksSection(context),
             const SizedBox(height: 24),
-
-            // История ухода
             _buildCareHistory(),
           ],
         ),
@@ -63,51 +59,109 @@ class PlantDetailScreen extends StatelessWidget {
   }
 
   Widget _buildHeroSection() {
-    return Card(
-      elevation: 0,
-      color: const Color(0xFFF5F5F5),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.green[50]!,
+            Colors.green[100]!,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.green[200]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundImage: NetworkImage(plant.imageUrl),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    plant.name,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+      child: Row(
+        children: [
+          // Изображение растения с анимацией
+          Hero(
+            tag: 'plant-${plant.id}',
+            child: Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
-                  const SizedBox(height: 4),
-                  if (plant.variety != null)
-                    Text(
-                      plant.variety!,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: plant.imageUrl.endsWith('.svg') 
+                  ? SvgPicture.asset(
+                      plant.imageUrl,
+                      width: 50,
+                      height: 50,
+                    )
+                  : Image.network(
+                      plant.imageUrl,
+                      width: 50,
+                      height: 50,
+                      errorBuilder: (context, error, stackTrace) {
+                        return SvgPicture.asset(
+                          'lib/assets/images/plant_placeholder.svg',
+                          width: 50,
+                          height: 50,
+                        );
+                      },
                     ),
-                  const SizedBox(height: 4),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Информация о растении
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  plant.name,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                if (plant.variety != null)
                   Text(
-                    'Посажено: ${plant.plantingDate.day}.${plant.plantingDate.month}.${plant.plantingDate.year}',
+                    plant.variety!,
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 14,
                       color: Colors.grey,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
+                const SizedBox(height: 4),
+                Text(
+                  'Посажено: ${plant.plantingDate.day}.${plant.plantingDate.month}.${plant.plantingDate.year}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.green[100],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
                     'Стадия: ${plant.growthStage}',
                     style: const TextStyle(
                       fontSize: 12,
@@ -115,11 +169,11 @@ class PlantDetailScreen extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -136,7 +190,6 @@ class PlantDetailScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-
         if (careEvents.isEmpty)
           _buildEmptyCareEvent()
         else
@@ -215,9 +268,7 @@ class PlantDetailScreen extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
-                      // Логика отметки выполнения
-                    },
+                    onPressed: () {},
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
@@ -281,8 +332,6 @@ class PlantDetailScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-
-        // Карточка магазина
         Card(
           elevation: 0,
           margin: const EdgeInsets.only(bottom: 12),
@@ -295,13 +344,9 @@ class PlantDetailScreen extends StatelessWidget {
             title: const Text('Семена и саженцы'),
             subtitle: const Text('100 ₽'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              // Открыть внешнюю ссылку
-            },
+            onTap: () {},
           ),
         ),
-
-        // Карточка использования урожая
         Card(
           elevation: 0,
           margin: const EdgeInsets.only(bottom: 12),
@@ -324,27 +369,44 @@ class PlantDetailScreen extends StatelessWidget {
             },
           ),
         ),
-
-        // Карточка графика подкормок
         Card(
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: const BorderSide(color: Color(0xFFEEEEEE)),
           ),
-          child: ListTile(
-            leading: const Icon(Icons.calendar_today, color: Colors.green),
-            title: const Text('График подкормок'),
-            subtitle: const Text('Годовой план ухода'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => FeedingScheduleScreen(plant: plant),
-                ),
-              );
-            },
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.calendar_today, color: Colors.green),
+                title: const Text('График подкормок'),
+                subtitle: const Text('Годовой план ухода (сводный)'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => FeedingScheduleScreen(plant: plant),
+                    ),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.list_alt, color: Colors.green),
+                title: const Text('План ухода подробно'),
+                subtitle: const Text('Все операции и материалы'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CarePlanDetailsScreen(plant: plant, user: user),
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
         ),
       ],
@@ -352,7 +414,6 @@ class PlantDetailScreen extends StatelessWidget {
   }
 
   Widget _buildCareHistory() {
-    // Временные данные для истории ухода
     final careHistory = [
       {'date': '1.01.2024', 'action': 'Обработка', 'status': 'Выполнено'},
       {'date': '15.12.2023', 'action': 'Подкормка', 'status': 'Выполнено'},

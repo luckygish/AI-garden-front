@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../models/plant.dart';
+import '../api/api_service.dart';
 
 class AddPlantScreen extends StatefulWidget {
   final Plant? plant;
@@ -18,6 +19,8 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
   final _varietyController = TextEditingController();
   DateTime? _plantingDate;
   String? _selectedGrowthStage;
+
+  bool _submitting = false;
 
   final List<String> _growthStages = [
     'Семя',
@@ -66,15 +69,15 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
             children: [
               const SizedBox(height: 20),
 
-              // Название растения
-              _buildSectionTitle('Название растения'),
+              // Название/культура растения
+              _buildSectionTitle('Культура (название растения)'),
               const SizedBox(height: 8),
               _buildTextField(
                 controller: _nameController,
-                hintText: 'Например, Томат',
+                hintText: 'Например, Огурец',
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Введите название растения';
+                    return 'Введите название культуры';
                   }
                   return null;
                 },
@@ -86,7 +89,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
               const SizedBox(height: 8),
               _buildTextField(
                 controller: _varietyController,
-                hintText: 'Например, Черри Блоссом',
+                hintText: 'Например, Зозуля',
               ),
               const SizedBox(height: 24),
 
@@ -205,7 +208,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: _savePlant,
+        onPressed: _submitting ? null : _savePlant,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.green,
           foregroundColor: Colors.white,
@@ -215,13 +218,19 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
           ),
           elevation: 0,
         ),
-        child: const Text(
-          'Сохранить растение',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        child: _submitting
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+              )
+            : const Text(
+                'Сохранить растение',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
       ),
     );
   }
@@ -270,14 +279,14 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
               ),
               const SizedBox(height: 16),
               ..._growthStages.map((stage) => ListTile(
-                title: Text(stage),
-                onTap: () {
-                  setState(() {
-                    _selectedGrowthStage = stage;
-                  });
-                  Navigator.pop(context);
-                },
-              )).toList(),
+                    title: Text(stage),
+                    onTap: () {
+                      setState(() {
+                        _selectedGrowthStage = stage;
+                      });
+                      Navigator.pop(context);
+                    },
+                  )).toList(),
             ],
           ),
         );
@@ -285,36 +294,156 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
     );
   }
 
-  void _savePlant() {
-    if (_formKey.currentState!.validate() && _plantingDate != null) {
-      // Здесь сохраняем растение
-      final plant = Plant(
-        id: widget.plant?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        name: _nameController.text,
-        variety: _varietyController.text.isNotEmpty ? _varietyController.text : null,
-        description: widget.plant?.description ?? 'Описание растения',
-        plantingDate: _plantingDate!,
-        growthStage: _selectedGrowthStage ?? 'Взрослое растение',
-        imageUrl: widget.plant?.imageUrl ?? 'https://via.placeholder.com/150?text=Plant',
-        category: '',
-      );
+  Future<void> _savePlant() async {
+    if (!_formKey.currentState!.validate() || _plantingDate == null) {
+      if (_plantingDate == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Пожалуйста, выберите дату посадки'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
 
-      Navigator.pop(context, plant);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(widget.plant != null
-              ? 'Растение обновлено!'
-              : 'Растение добавлено в ваш сад!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } else if (_plantingDate == null) {
+    // Дополнительная валидация
+    if (_selectedGrowthStage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Пожалуйста, выберите дату посадки'),
+          content: Text('Пожалуйста, выберите стадию роста'),
           backgroundColor: Colors.red,
         ),
       );
+      return;
     }
+
+    // Проверка на будущую дату
+    if (_plantingDate!.isAfter(DateTime.now())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Дата посадки не может быть в будущем'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _submitting = true);
+    try {
+      // Маппинг синонимов для корректного поиска плана ухода
+      String culture = _nameController.text.trim();
+      culture = _mapCultureToCanonical(culture);
+      
+      final created = await ApiService.addPlant(
+        culture: culture,
+        name: _nameController.text.trim(),
+        variety: _varietyController.text.trim().isNotEmpty ? _varietyController.text.trim() : null,
+        plantingDate: _plantingDate!,
+        growthStage: _selectedGrowthStage,
+      );
+
+      // Собираем локальную модель для UI, используя id с бэкенда
+      final plant = Plant(
+        id: (created['id'] ?? created['plantId'] ?? DateTime.now().millisecondsSinceEpoch.toString()).toString(),
+        name: _nameController.text.trim(),
+        variety: _varietyController.text.trim().isNotEmpty ? _varietyController.text.trim() : null,
+        description: widget.plant?.description ?? 'Описание растения',
+        plantingDate: _plantingDate!,
+        growthStage: _selectedGrowthStage ?? 'Взрослое растение',
+        imageUrl: widget.plant?.imageUrl ?? 'lib/assets/images/plant_placeholder.svg',
+        category: '',
+        culture: culture, // Передаем каноническое название культуры
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context, plant);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(widget.plant != null ? 'Растение обновлено!' : 'Растение добавлено в ваш сад!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      String errorMessage = 'Произошла ошибка при добавлении растения';
+      
+      // Более детальная обработка ошибок
+      if (e.toString().contains('План ухода не найден')) {
+        errorMessage = 'План ухода для данной культуры не найден. Попробуйте другое название растения.';
+      } else if (e.toString().contains('Ошибка подключения')) {
+        errorMessage = 'Проблема с подключением к серверу. Проверьте интернет-соединение.';
+      } else if (e.toString().contains('Таймаут')) {
+        errorMessage = 'Превышено время ожидания. Попробуйте еще раз.';
+      } else if (e.toString().contains('Сессия истекла')) {
+        errorMessage = 'Сессия истекла. Пожалуйста, войдите в систему заново.';
+      } else if (e.toString().contains('Культура не может быть пустой')) {
+        errorMessage = 'Пожалуйста, введите название растения.';
+      } else if (e.toString().contains('Дата посадки обязательна')) {
+        errorMessage = 'Пожалуйста, выберите дату посадки.';
+      } else if (e.toString().contains('Стадия роста не может быть пустой')) {
+        errorMessage = 'Пожалуйста, выберите стадию роста.';
+      }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  // Маппинг синонимов на канонические названия культур
+  String _mapCultureToCanonical(String input) {
+    final cultureMap = {
+      'томат': 'Помидор',
+      'томаты': 'Помидор',
+      'помидоры': 'Помидор',
+      'помидор': 'Помидор',
+      'огурец': 'Огурец',
+      'огурцы': 'Огурец',
+      'перец': 'Перец',
+      'перцы': 'Перец',
+      'баклажан': 'Баклажан',
+      'баклажаны': 'Баклажан',
+      'капуста': 'Капуста',
+      'морковь': 'Морковь',
+      'свекла': 'Свекла',
+      'свёкла': 'Свекла',
+      'лук': 'Лук',
+      'чеснок': 'Чеснок',
+      'картофель': 'Картофель',
+      'картошка': 'Картофель',
+      'редис': 'Редис',
+      'редиска': 'Редис',
+      'салат': 'Салат',
+      'укроп': 'Укроп',
+      'петрушка': 'Петрушка',
+      'базилик': 'Базилик',
+      'мята': 'Мята',
+      'розмарин': 'Розмарин',
+      'тимьян': 'Тимьян',
+      'шпинат': 'Шпинат',
+      'руккола': 'Руккола',
+      'клубника': 'Клубника',
+      'земляника': 'Клубника',
+      'малина': 'Малина',
+      'смородина': 'Смородина',
+      'крыжовник': 'Крыжовник',
+      'виноград': 'Виноград',
+      'яблоня': 'Яблоня',
+      'груша': 'Груша',
+      'слива': 'Слива',
+      'вишня': 'Вишня',
+      'черешня': 'Черешня',
+    };
+    
+    String normalized = input.toLowerCase().trim();
+    return cultureMap[normalized] ?? input; // Возвращаем каноническое название или исходное
   }
 }

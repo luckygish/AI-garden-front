@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/main_navigation_screen.dart';
+import 'screens/auth_screen.dart';
 import 'models/user.dart';
+import 'api/api_service.dart';
+import 'api/shared_prefs_service.dart';
 
 class App extends StatefulWidget {
   const App({super.key});
@@ -12,37 +15,56 @@ class App extends StatefulWidget {
 
 class _AppState extends State<App> {
   User? _currentUser;
-  bool _showOnboarding = true;
+  bool _initialized = false;
+  bool _authenticated = false;
 
-  void _completeOnboarding(User user) {
-    setState(() {
-      _currentUser = user;
-      _showOnboarding = false;
-    });
-
-    // После сохранения пользователя сразу переходим к главному экрану
-    if (!_showOnboarding) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => MainNavigationScreen(user: _currentUser!, onLogout: _logout),
-        ),
-      );
-    }
+  @override
+  void initState() {
+    super.initState();
+    _bootstrap();
   }
 
-  void _logout() {
+  Future<void> _bootstrap() async {
+    await ApiService.initialize();
+    final token = await SharedPrefsService.getAuthToken();
+    setState(() {
+      _authenticated = token != null;
+      _initialized = true;
+    });
+  }
+
+  void _onAuthenticated(User user) {
+    setState(() {
+      _currentUser = user;
+      _authenticated = true;
+    });
+  }
+
+  Future<void> _logout() async {
+    await ApiService.logout();
+    await SharedPrefsService.clearAuthData();
     setState(() {
       _currentUser = null;
-      _showOnboarding = true;
+      _authenticated = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_showOnboarding) {
-      return OnboardingScreen(onComplete: _completeOnboarding);
+    if (!_initialized) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
 
-    return MainNavigationScreen(user: _currentUser!, onLogout: _logout);
+    if (_authenticated) {
+      return MainNavigationScreen(
+        user: _currentUser ?? User(id: '', name: null, region: '', gardenType: ''),
+        onLogout: _logout,
+      );
+    }
+
+    // Показываем экран аутентификации (вместо онбординга, при необходимости можно цепочкой)
+    return AuthScreen(onAuthenticated: _onAuthenticated);
   }
 }

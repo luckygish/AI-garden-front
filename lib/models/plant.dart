@@ -7,6 +7,7 @@ class Plant {
   final String imageUrl;
   final String description;
   final String category;
+  final String? culture; // Каноническое название культуры для поиска планов
 
   Plant({
     required this.id,
@@ -17,5 +18,6 @@ class Plant {
     required this.imageUrl,
     required this.description,
     required this.category,
+    this.culture,
   });
 }
