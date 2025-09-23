@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/api_service.dart';
 import '../models/plant.dart';
 import '../models/user.dart';
+import '../services/care_history_service.dart';
 
 class CarePlanDetailsScreen extends StatefulWidget {
   final Plant plant;
@@ -18,6 +19,7 @@ class _CarePlanDetailsScreenState extends State<CarePlanDetailsScreen> {
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _operations = const [];
+  Set<String> _completedOperations = <String>{};
 
   @override
   void initState() {
@@ -58,13 +60,23 @@ class _CarePlanDetailsScreenState extends State<CarePlanDetailsScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('План ухода (подробно)', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18)),
+        title: const Text(
+          'План ухода (подробно)',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
         centerTitle: true,
         actions: [
-          IconButton(icon: const Icon(Icons.refresh, color: Colors.black), onPressed: _loading ? null : _loadPlan),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.black),
+            onPressed: _loading ? null : _loadPlan,
+          ),
         ],
       ),
       body: _buildBody(),
@@ -94,14 +106,101 @@ class _CarePlanDetailsScreenState extends State<CarePlanDetailsScreen> {
       return const Center(child: Text('План не найден'));
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: _operations.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final op = _operations[index];
-        return _buildOperationCard(op);
-      },
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Заголовок
+          _buildTitle(),
+          const SizedBox(height: 20),
+          
+          // Операции по типам
+          ..._buildOperationsByType(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTitle() {
+    return Text(
+      'План ухода для ${widget.plant.name}',
+      style: const TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
+        color: Colors.black87,
+      ),
+    );
+  }
+
+  List<Widget> _buildOperationsByType() {
+    // Группируем операции по типам
+    final Map<String, List<Map<String, dynamic>>> operationsByType = {};
+    for (final op in _operations) {
+      final type = (op['type'] ?? '').toString();
+      if (type.isNotEmpty) {
+        operationsByType.putIfAbsent(type, () => []).add(op);
+      }
+    }
+
+    final List<Widget> widgets = [];
+    operationsByType.forEach((type, operations) {
+      widgets.add(
+        _buildExpandableSection(
+          title: _getTypeTitle(type),
+          operations: operations,
+        ),
+      );
+      widgets.add(const SizedBox(height: 16));
+    });
+
+    return widgets;
+  }
+
+  String _getTypeTitle(String type) {
+    switch (type.toLowerCase()) {
+      case 'подкормка':
+        return 'Подкормка';
+      case 'обработка':
+        return 'Обработка';
+      case 'полив':
+        return 'Полив';
+      case 'обрезка':
+        return 'Обрезка';
+      default:
+        return type;
+    }
+  }
+
+  Widget _buildExpandableSection({
+    required String title,
+    required List<Map<String, dynamic>> operations,
+  }) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xFFEEEEEE)),
+      ),
+      child: ExpansionTile(
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        initiallyExpanded: true,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              children: operations.map((op) => _buildOperationCard(op)).toList(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -111,62 +210,117 @@ class _CarePlanDetailsScreenState extends State<CarePlanDetailsScreen> {
     final String period = (op['period'] ?? '').toString();
     final String desc = (op['description'] ?? '').toString();
     final List<dynamic> materials = (op['materials'] as List<dynamic>? ?? []);
+    
+    // Создаем уникальный ID для операции
+    final String operationId = _generateOperationId(op);
+    final bool isCompleted = CareHistoryService.isOperationCompleted(operationId);
 
     return Card(
       elevation: 0,
+      color: const Color(0xFFF8F9FA),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         side: const BorderSide(color: Color(0xFFEEEEEE)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Заголовок с чекбоксом
             Row(
               children: [
-                _typeChip(type),
-                const SizedBox(width: 8),
-                if (period.isNotEmpty) Text(period, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (fase.isNotEmpty)
+                        Text(
+                          fase,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      if (period.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          period,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.green,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                // Чекбокс увеличенный на 15%
+                Transform.scale(
+                  scale: 1.15,
+                  child: Checkbox(
+                    value: isCompleted,
+                    onChanged: (bool? value) {
+                      setState(() {
+                        if (value == true) {
+                          // Сохраняем детали операции для перехода
+                          CareHistoryService.addCompletedOperation(
+                            operationId,
+                            details: {
+                              'type': type,
+                              'fase': fase,
+                              'period': period,
+                              'description': desc,
+                              'materials': materials,
+                            },
+                          );
+                        } else {
+                          CareHistoryService.removeCompletedOperation(operationId);
+                        }
+                      });
+                    },
+                    activeColor: Colors.green,
+                  ),
+                ),
               ],
             ),
-            if (fase.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(fase, style: const TextStyle(fontWeight: FontWeight.bold)),
-            ],
+            
+            // Описание
             if (desc.isNotEmpty) ...[
               const SizedBox(height: 8),
-              Text(desc, style: const TextStyle(fontSize: 14, height: 1.4)),
+              Text(
+                desc,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black87,
+                  height: 1.4,
+                ),
+              ),
             ],
-            const SizedBox(height: 12),
-            ...materials.map((m) => _buildMaterialCard((m as Map).cast<String, dynamic>())),
+            
+            // Материалы
+            if (materials.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              ...materials.map((m) => _buildMaterialCard((m as Map).cast<String, dynamic>())),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _typeChip(String type) {
-    Color color;
-    switch (type) {
-      case 'подкормка':
-        color = Colors.orange;
-        break;
-      case 'обработка':
-        color = Colors.blue;
-        break;
-      case 'полив':
-        color = Colors.teal;
-        break;
-      default:
-        color = Colors.grey;
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: color.withOpacity(0.3))),
-      child: Text(type, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
-    );
+  String _generateOperationId(Map<String, dynamic> op) {
+    // Создаем уникальный ID на основе основных полей операции
+    final String type = (op['type'] ?? '').toString();
+    final String fase = (op['fase'] ?? '').toString();
+    final String period = (op['period'] ?? '').toString();
+    final String desc = (op['description'] ?? '').toString();
+    
+    return '${type}_${fase}_${period}_${desc}'.hashCode.toString();
   }
+
 
   Widget _buildMaterialCard(Map<String, dynamic> m) {
     final String name = (m['name'] ?? '').toString();
@@ -211,10 +365,33 @@ class _CarePlanDetailsScreenState extends State<CarePlanDetailsScreen> {
             const SizedBox(height: 8),
             const Text('Аналоги:', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
-            ...alts.map((a) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text('- ${(a as Map)['name']}: ${(a as Map)['comment'] ?? ''}')),
+            ...alts.map((a) {
+              final altMap = a as Map<String, dynamic>;
+              final altName = (altMap['name'] ?? '').toString();
+              final altComment = (altMap['comment'] ?? '').toString();
+              final altNorm = (altMap['norm'] ?? '').toString();
+              
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('- $altName: $altComment'),
+                    if (altNorm.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '  Норма: $altNorm',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
+              );
+            }),
           ],
         ],
       ),

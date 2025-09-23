@@ -168,7 +168,7 @@ class ApiService {
     final q = Uri(queryParameters: {
       'culture': culture,
       'region': region,
-      'gardenType': gardenType, // Параметр остается gardenType для API
+      'gardenType': gardenType, // Бэкенд ожидает gardenType, не garden_type
     }).query;
     final response = await _request('GET', '/care-plans/by-params?$q', requireAuth: false);
     return json.decode(response.body) as Map<String, dynamic>;

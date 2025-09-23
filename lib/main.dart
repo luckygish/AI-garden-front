@@ -1,17 +1,8 @@
 import 'package:flutter/material.dart';
-import 'api/api_service.dart';
-import 'api/shared_prefs_service.dart';
 import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Загружаем сохраненный токен при запуске
-  final savedToken = await SharedPrefsService.getAuthToken();
-  if (savedToken != null) {
-    ApiService.authToken = savedToken;
-  }
-
   runApp(const GardenHelperApp());
 }
 

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/user.dart';
+import '../api/api_service.dart';
+import '../api/shared_prefs_service.dart';
 
 class RegistrationScreen extends StatefulWidget {
   final Function(User) onComplete;
@@ -12,6 +14,8 @@ class RegistrationScreen extends StatefulWidget {
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   String? _selectedRegion;
   String? _selectedGardenType;
@@ -55,6 +59,46 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               const SizedBox(height: 20),
 
               TextFormField(
+                controller: _emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email *',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+                keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Введите email';
+                  }
+                  if (!value.contains('@')) {
+                    return 'Введите корректный email';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
+
+              TextFormField(
+                controller: _passwordController,
+                decoration: const InputDecoration(
+                  labelText: 'Пароль *',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+                obscureText: true,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Введите пароль';
+                  }
+                  if (value.length < 6) {
+                    return 'Пароль должен быть не менее 6 символов';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
+
+              TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(
                   labelText: 'Ваше имя',
@@ -65,7 +109,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               const SizedBox(height: 20),
 
               DropdownButtonFormField<String>(
-                value: _selectedRegion,
+                initialValue: _selectedRegion,
                 decoration: const InputDecoration(
                   labelText: 'Выберите ваш регион *',
                   border: OutlineInputBorder(),
@@ -92,7 +136,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               const SizedBox(height: 20),
 
               DropdownButtonFormField<String>(
-                value: _selectedGardenType,
+                initialValue: _selectedGardenType,
                 decoration: const InputDecoration(
                   labelText: 'Тип участка *',
                   border: OutlineInputBorder(),
@@ -162,37 +206,53 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         _isLoading = true;
       });
 
-      // Имитация задержки для сохранения в БД
-      await Future.delayed(const Duration(milliseconds: 500));
+      try {
+        // Вызываем API для регистрации
+        final res = await ApiService.register(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          name: _nameController.text.trim(),
+          region: _selectedRegion!,
+          gardenType: _selectedGardenType!,
+        );
 
-      final user = User(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: _nameController.text.isNotEmpty ? _nameController.text : null,
-        region: _selectedRegion!,
-        gardenType: _selectedGardenType!,
-      );
+        final user = User(
+          id: (res['userId'] ?? '').toString(),
+          name: res['name'] as String?,
+          region: (res['region'] ?? '').toString(),
+          gardenType: (res['gardenType'] ?? '').toString(),
+        );
 
-      // Сохраняем пользователя (здесь будет логика сохранения в БД)
-      _saveUserToDatabase(user);
+        // Сохраняем данные пользователя
+        await SharedPrefsService.saveUserData(user);
 
-      // Вызываем колбэк для завершения онбординга
-      widget.onComplete(user);
+        // Вызываем колбэк для завершения регистрации
+        widget.onComplete(user);
 
-      // Закрываем экран регистрации и возвращаемся к основному потоку
-      if (mounted) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        // Закрываем экран регистрации и возвращаемся к основному потоку
+        if (mounted) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Ошибка регистрации: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
-
-      setState(() {
-        _isLoading = false;
-      });
     }
   }
 
-  void _saveUserToDatabase(User user) {
-    // Здесь будет реальная логика сохранения в базу данных
-    print('Сохранение пользователя в БД: ${user.toJson()}');
-  }
 }
 
 // Добавляем метод toJson в модель User

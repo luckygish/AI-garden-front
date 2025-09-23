@@ -17,6 +17,7 @@ class _AppState extends State<App> {
   User? _currentUser;
   bool _initialized = false;
   bool _authenticated = false;
+  bool _onboardingCompleted = false;
 
   @override
   void initState() {
@@ -27,16 +28,31 @@ class _AppState extends State<App> {
   Future<void> _bootstrap() async {
     await ApiService.initialize();
     final token = await SharedPrefsService.getAuthToken();
+    final userData = await SharedPrefsService.getUserData();
+    final onboardingCompleted = await SharedPrefsService.isOnboardingCompleted();
+    
     setState(() {
       _authenticated = token != null;
+      _currentUser = userData; // Восстанавливаем данные пользователя
+      _onboardingCompleted = onboardingCompleted;
       _initialized = true;
     });
   }
 
-  void _onAuthenticated(User user) {
+  void _onAuthenticated(User user) async {
+    // Сохраняем данные пользователя
+    await SharedPrefsService.saveUserData(user);
+    
     setState(() {
       _currentUser = user;
       _authenticated = true;
+    });
+  }
+
+  void _onOnboardingCompleted() async {
+    await SharedPrefsService.setOnboardingCompleted();
+    setState(() {
+      _onboardingCompleted = true;
     });
   }
 
@@ -64,7 +80,12 @@ class _AppState extends State<App> {
       );
     }
 
-    // Показываем экран аутентификации (вместо онбординга, при необходимости можно цепочкой)
+    // Если онбординг не завершен, показываем его
+    if (!_onboardingCompleted) {
+      return OnboardingScreen(onCompleted: _onOnboardingCompleted);
+    }
+
+    // После онбординга показываем экран аутентификации
     return AuthScreen(onAuthenticated: _onAuthenticated);
   }
 }

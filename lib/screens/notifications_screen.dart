@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../models/care_event.dart';
+import '../models/plant.dart';
+import '../services/upcoming_events_service.dart';
 import 'care_guide_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -15,12 +17,60 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _notificationsEnabled = true;
   TimeOfDay _notificationTime = const TimeOfDay(hour: 9, minute: 0);
-  final List<CareEvent> _upcomingEvents = []; // Здесь будут события из базы
+  List<CareEvent> _upcomingEvents = [];
+  bool _loadingEvents = true;
 
   @override
   void initState() {
     super.initState();
     _notificationsEnabled = widget.user.notificationsEnabled;
+    _loadUpcomingEvents();
+  }
+
+  Future<void> _loadUpcomingEvents() async {
+    setState(() {
+      _loadingEvents = true;
+    });
+
+    try {
+      // Получаем список растений пользователя
+      // В реальном приложении это должно быть из API или локальной БД
+      final plants = <Plant>[
+        Plant(
+          id: '1',
+          name: 'Томат',
+          variety: 'Черри',
+          plantingDate: DateTime.now().subtract(const Duration(days: 30)),
+          growthStage: 'Вегетация',
+          imageUrl: '',
+          description: 'Помидоры черри для выращивания в теплице',
+          category: 'Овощи',
+          culture: 'Томат',
+        ),
+        Plant(
+          id: '2',
+          name: 'Огурец',
+          variety: 'Гибрид',
+          plantingDate: DateTime.now().subtract(const Duration(days: 20)),
+          growthStage: 'Цветение',
+          imageUrl: '',
+          description: 'Огурцы для выращивания в открытом грунте',
+          category: 'Овощи',
+          culture: 'Огурец',
+        ),
+      ];
+
+      final events = await UpcomingEventsService.getUpcomingEvents(widget.user, plants);
+      
+      setState(() {
+        _upcomingEvents = events;
+        _loadingEvents = false;
+      });
+    } catch (e) {
+      setState(() {
+        _loadingEvents = false;
+      });
+    }
   }
 
   @override
@@ -77,7 +127,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
           const SizedBox(height: 12),
 
-          _upcomingEvents.isEmpty
+          _loadingEvents
+              ? const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+          )
+              : _upcomingEvents.isEmpty
               ? const Card(
             child: Padding(
               padding: EdgeInsets.all(16.0),
@@ -92,7 +151,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   leading: _getEventIcon(event.title),
                   title: Text(event.title),
                   subtitle: Text(
-                      '${event.date.day}.${event.date.month}.${event.date.year} '
+                      '${_formatEventDate(event.date)} '
                           'в ${_notificationTime.format(context)}'
                   ),
                   trailing: const Icon(Icons.chevron_right),
@@ -133,5 +192,32 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       return const Icon(Icons.medical_services, color: Colors.blue);
     }
     return const Icon(Icons.calendar_today);
+  }
+
+  String _formatEventDate(DateTime date) {
+    final now = DateTime.now();
+    final currentMonth = now.month;
+    final eventMonth = date.month;
+    
+    // Если событие в текущем месяце
+    if (eventMonth == currentMonth) {
+      return '${_getMonthName(date.month)} (текущий месяц)';
+    }
+    // Если событие в следующем месяце
+    else if (eventMonth == (currentMonth % 12) + 1) {
+      return '${_getMonthName(date.month)} (следующий месяц)';
+    }
+    // Для других случаев
+    else {
+      return '${_getMonthName(date.month)} ${date.year}';
+    }
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+      'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'
+    ];
+    return months[month - 1];
   }
 }

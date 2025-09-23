@@ -3,9 +3,9 @@ import 'registration_screen.dart';
 import '../models/user.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  final Function(User) onComplete;
+  final VoidCallback? onCompleted;
 
-  const OnboardingScreen({super.key, required this.onComplete});
+  const OnboardingScreen({super.key, this.onCompleted});
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -50,11 +50,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
+                    // Вызываем колбэк завершения онбординга
+                    widget.onCompleted?.call();
+                    
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => RegistrationScreen(
-                          onComplete: widget.onComplete,
+                          onComplete: (user) {
+                            // После регистрации возвращаемся к главному экрану
+                            Navigator.pop(context);
+                          },
                         ),
                       ),
                     );

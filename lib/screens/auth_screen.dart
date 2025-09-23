@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../api/api_service.dart';
+import '../api/shared_prefs_service.dart';
 import '../models/user.dart';
+import 'registration_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   final Function(User) onAuthenticated;
@@ -11,41 +13,19 @@ class AuthScreen extends StatefulWidget {
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Вход / Регистрация'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Войти'),
-            Tab(text: 'Регистрация'),
-          ],
-        ),
+        title: const Text('Вход'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        centerTitle: true,
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _LoginTab(onSuccess: widget.onAuthenticated),
-          _RegisterTab(onSuccess: widget.onAuthenticated),
-        ],
-      ),
+      body: _LoginTab(onSuccess: widget.onAuthenticated),
     );
   }
 }
@@ -66,40 +46,89 @@ class _LoginTabState extends State<_LoginTab> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Form(
         key: _formKey,
         child: Column(
           children: [
+            const SizedBox(height: 40),
             TextFormField(
               controller: _emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
               keyboardType: TextInputType.emailAddress,
               validator: (v) => (v == null || v.isEmpty) ? 'Введите email' : null,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
             TextFormField(
               controller: _passwordController,
-              decoration: const InputDecoration(labelText: 'Пароль (ровно 6 символов)'),
+              decoration: const InputDecoration(
+                labelText: 'Пароль',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
               obscureText: true,
-              validator: (v) {
-                if (v == null || v.isEmpty) return 'Введите пароль';
-                if (v.length != 6) return 'Длина ровно 6';
-                final hasLetter = v.contains(RegExp(r'[A-Za-zА-Яа-я]'));
-                final hasDigit = v.contains(RegExp(r'\d'));
-                if (!hasLetter || !hasDigit) return 'Пароль: буквы и цифры';
-                return null;
-              },
+              validator: (v) => (v == null || v.isEmpty) ? 'Введите пароль' : null,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 30),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _loading ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  disabledBackgroundColor: Colors.green.withOpacity(0.5),
+                ),
                 child: _loading
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Войти'),
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text(
+                        'Войти',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            TextButton(
+              onPressed: () {
+                // Переход к экрану регистрации
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => RegistrationScreen(
+                      onComplete: (user) {
+                        // После регистрации возвращаемся к главному экрану
+                        Navigator.pop(context);
+                        widget.onSuccess(user);
+                      },
+                    ),
+                  ),
+                );
+              },
+              child: const Text(
+                'Нет аккаунта? Зарегистрироваться',
+                style: TextStyle(
+                  color: Colors.green,
+                  fontSize: 16,
+                ),
               ),
             ),
           ],
@@ -122,141 +151,16 @@ class _LoginTabState extends State<_LoginTab> {
         region: (res['region'] ?? '').toString(),
         gardenType: (res['gardenType'] ?? '').toString(),
       );
+
+      // Сохраняем данные пользователя
+      await SharedPrefsService.saveUserData(user);
+
       if (!mounted) return;
       widget.onSuccess(user);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Ошибка входа: $e'), backgroundColor: Colors.red),
-      );
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-}
-
-class _RegisterTab extends StatefulWidget {
-  final Function(User) onSuccess;
-  const _RegisterTab({required this.onSuccess});
-
-  @override
-  State<_RegisterTab> createState() => _RegisterTabState();
-}
-
-class _RegisterTabState extends State<_RegisterTab> {
-  final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _nameController = TextEditingController();
-  final _passwordController = TextEditingController();
-  String? _region;
-  String? _gardenType;
-  bool _loading = false;
-
-  final _regions = const [
-    'Московская область',
-    'Центральный',
-    'Северо-Западный',
-    'Южный',
-    'Северо-Кавказский',
-    'Приволжский',
-    'Уральский',
-    'Сибирский',
-    'Дальневосточный',
-  ];
-
-  final _gardenTypes = const [
-    'Открытый грунт',
-    'Теплица',
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          children: [
-            TextFormField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
-              keyboardType: TextInputType.emailAddress,
-              validator: (v) => (v == null || v.isEmpty) ? 'Введите email' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Имя'),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _region,
-              items: _regions.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-              decoration: const InputDecoration(labelText: 'Регион'),
-              validator: (v) => v == null ? 'Выберите регион' : null,
-              onChanged: (v) => setState(() => _region = v),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _gardenType,
-              items: _gardenTypes.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-              decoration: const InputDecoration(labelText: 'Тип участка'),
-              validator: (v) => v == null ? 'Выберите тип участка' : null,
-              onChanged: (v) => setState(() => _gardenType = v),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _passwordController,
-              decoration: const InputDecoration(labelText: 'Пароль (ровно 6 символов)'),
-              obscureText: true,
-              validator: (v) {
-                if (v == null || v.isEmpty) return 'Введите пароль';
-                if (v.length != 6) return 'Длина ровно 6';
-                final hasLetter = v.contains(RegExp(r'[A-Za-zА-Яа-я]'));
-                final hasDigit = v.contains(RegExp(r'\d'));
-                if (!hasLetter || !hasDigit) return 'Пароль: буквы и цифры';
-                return null;
-              },
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _loading ? null : _submit,
-                child: _loading
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Зарегистрироваться'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _loading = true);
-    try {
-      final res = await ApiService.register(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-        name: _nameController.text.trim(),
-        region: _region!,
-        gardenType: _gardenType!,
-      );
-      final user = User(
-        id: (res['userId'] ?? '').toString(),
-        name: res['name'] as String?,
-        region: (res['region'] ?? '').toString(),
-        gardenType: (res['gardenType'] ?? '').toString(),
-      );
-      if (!mounted) return;
-      widget.onSuccess(user);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка регистрации: $e'), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => _loading = false);

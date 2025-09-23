@@ -13,33 +13,11 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  String? _selectedRegion;
-  String? _selectedGardenType;
-
-  final List<String> _regions = [
-    'Центральный',
-    'Северо-Западный',
-    'Южный',
-    'Северо-Кавказский',
-    'Приволжский',
-    'Уральский',
-    'Сибирский',
-    'Дальневосточный'
-  ];
-
-  final List<String> _gardenTypes = [
-    'Открытый грунт',
-    'Теплица',
-    'Балкон',
-    'Подоконник'
-  ];
 
   @override
   void initState() {
     super.initState();
     _nameController.text = widget.user.name ?? '';
-    _selectedRegion = widget.user.region;
-    _selectedGardenType = widget.user.gardenType;
   }
 
   @override
@@ -65,56 +43,84 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
               const SizedBox(height: 20),
 
-              DropdownButtonFormField<String>(
-                value: _selectedRegion,
-                decoration: const InputDecoration(
-                  labelText: 'Регион',
-                  border: OutlineInputBorder(),
+              // Регион (только для отображения)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(4),
+                  color: Colors.grey.shade50,
                 ),
-                items: _regions.map((String region) {
-                  return DropdownMenuItem(
-                    value: region,
-                    child: Text(region),
-                  );
-                }).toList(),
-                onChanged: (String? value) {
-                  setState(() {
-                    _selectedRegion = value;
-                  });
-                },
-                validator: (value) {
-                  if (value == null) {
-                    return 'Пожалуйста, выберите регион';
-                  }
-                  return null;
-                },
+                child: Row(
+                  children: [
+                    const Icon(Icons.location_on, color: Colors.grey, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Регион',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.user.region,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
 
               const SizedBox(height: 20),
 
-              DropdownButtonFormField<String>(
-                value: _selectedGardenType,
-                decoration: const InputDecoration(
-                  labelText: 'Тип участка',
-                  border: OutlineInputBorder(),
+              // Тип участка (только для отображения)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(4),
+                  color: Colors.grey.shade50,
                 ),
-                items: _gardenTypes.map((String type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(type),
-                  );
-                }).toList(),
-                onChanged: (String? value) {
-                  setState(() {
-                    _selectedGardenType = value;
-                  });
-                },
-                validator: (value) {
-                  if (value == null) {
-                    return 'Пожалуйста, выберите тип участка';
-                  }
-                  return null;
-                },
+                child: Row(
+                  children: [
+                    const Icon(Icons.home, color: Colors.grey, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Тип участка',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.user.gardenType,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
 
               const SizedBox(height: 30),
@@ -132,10 +138,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   void _saveProfile() {
     if (_formKey.currentState!.validate()) {
-      // Здесь сохраняем изменения профиля
+      // Здесь сохраняем только имя пользователя
+      // Регион и тип участка не изменяются
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Профиль успешно обновлен!')),
+        const SnackBar(
+          content: Text('Профиль успешно обновлен!'),
+          backgroundColor: Colors.green,
+        ),
       );
     }
   }
