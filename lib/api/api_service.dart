@@ -38,16 +38,16 @@ class ApiService {
       late http.Response response;
       switch (method.toUpperCase()) {
         case 'GET':
-          response = await http.get(url, headers: headers).timeout(const Duration(seconds: 30));
+          response = await http.get(url, headers: headers).timeout(const Duration(minutes: 2));
           break;
         case 'DELETE':
-          response = await http.delete(url, headers: headers).timeout(const Duration(seconds: 30));
+          response = await http.delete(url, headers: headers).timeout(const Duration(minutes: 2));
           break;
         case 'POST':
         default:
           response = await http
               .post(url, headers: headers, body: body != null ? json.encode(body) : null)
-              .timeout(const Duration(seconds: 30));
+              .timeout(const Duration(minutes: 2));
       }
       if (response.statusCode == 401 || response.statusCode == 403) {
         await _clearAuthData();
@@ -185,7 +185,17 @@ class ApiService {
     return response.body;
   }
 
-  static Future<void> resetConfirm({required String token, required String newPassword}) async {
-    await _request('POST', '/auth/password/reset-confirm', body: {'token': token, 'newPassword': newPassword}, requireAuth: false);
+  static Future<Map<String, dynamic>?> getPlantById(String plantId) async {
+    try {
+      final response = await _request('GET', '/plants/$plantId');
+      return json.decode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return null; // Растение не найдено
+    }
+  }
+
+  static Future<bool> checkPlantExists(String plantId) async {
+    final plant = await getPlantById(plantId);
+    return plant != null;
   }
 }

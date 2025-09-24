@@ -49,152 +49,188 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         foregroundColor: Colors.black,
         elevation: 0,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Адаптивные отступы в зависимости от размера экрана
+            final isSmallScreen = constraints.maxHeight < 600;
+            final padding = isSmallScreen ? 16.0 : 20.0;
+            final spacing = isSmallScreen ? 12.0 : 16.0;
+            
+            return SingleChildScrollView(
+              padding: EdgeInsets.all(padding),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(height: isSmallScreen ? 8 : 16),
 
-              TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email *',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                ),
-                keyboardType: TextInputType.emailAddress,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Введите email';
-                  }
-                  if (!value.contains('@')) {
-                    return 'Введите корректный email';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-
-              TextFormField(
-                controller: _passwordController,
-                decoration: const InputDecoration(
-                  labelText: 'Пароль *',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                ),
-                obscureText: true,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Введите пароль';
-                  }
-                  if (value.length < 6) {
-                    return 'Пароль должен быть не менее 6 символов';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Ваше имя',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              DropdownButtonFormField<String>(
-                initialValue: _selectedRegion,
-                decoration: const InputDecoration(
-                  labelText: 'Выберите ваш регион *',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                ),
-                items: _regions.map((String region) {
-                  return DropdownMenuItem(
-                    value: region,
-                    child: Text(region),
-                  );
-                }).toList(),
-                onChanged: (String? value) {
-                  setState(() {
-                    _selectedRegion = value;
-                  });
-                },
-                validator: (value) {
-                  if (value == null) {
-                    return 'Пожалуйста, выберите регион';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-
-              DropdownButtonFormField<String>(
-                initialValue: _selectedGardenType,
-                decoration: const InputDecoration(
-                  labelText: 'Тип участка *',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                ),
-                items: _gardenTypes.map((String type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(type),
-                  );
-                }).toList(),
-                onChanged: (String? value) {
-                  setState(() {
-                    _selectedGardenType = value;
-                  });
-                },
-                validator: (value) {
-                  if (value == null) {
-                    return 'Пожалуйста, выберите тип участка';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 30),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _submitForm,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                    TextFormField(
+                      controller: _emailController,
+                      decoration: InputDecoration(
+                        labelText: 'Email *',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16, 
+                          vertical: isSmallScreen ? 12 : 14,
+                        ),
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Введите email';
+                        }
+                        if (!value.contains('@')) {
+                          return 'Введите корректный email';
+                        }
+                        return null;
+                      },
                     ),
-                    disabledBackgroundColor: Colors.green.withOpacity(0.5),
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
+                    SizedBox(height: spacing),
+
+                    TextFormField(
+                      controller: _passwordController,
+                      decoration: InputDecoration(
+                        labelText: 'Пароль *',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16, 
+                          vertical: isSmallScreen ? 12 : 14,
+                        ),
+                      ),
+                      obscureText: true,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Введите пароль';
+                        }
+                        if (value.length < 6) {
+                          return 'Пароль должен быть не менее 6 символов';
+                        }
+                        return null;
+                      },
                     ),
-                  )
-                      : const Text(
-                    'Сохранить',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                    SizedBox(height: spacing),
+
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: InputDecoration(
+                        labelText: 'Ваше имя',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16, 
+                          vertical: isSmallScreen ? 12 : 14,
+                        ),
+                      ),
                     ),
-                  ),
+                    SizedBox(height: spacing),
+
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedRegion,
+                      decoration: InputDecoration(
+                        labelText: 'Выберите ваш регион *',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16, 
+                          vertical: isSmallScreen ? 12 : 14,
+                        ),
+                      ),
+                      items: _regions.map((String region) {
+                        return DropdownMenuItem(
+                          value: region,
+                          child: Text(region),
+                        );
+                      }).toList(),
+                      onChanged: (String? value) {
+                        setState(() {
+                          _selectedRegion = value;
+                        });
+                      },
+                      validator: (value) {
+                        if (value == null) {
+                          return 'Пожалуйста, выберите регион';
+                        }
+                        return null;
+                      },
+                    ),
+                    SizedBox(height: spacing),
+
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedGardenType,
+                      decoration: InputDecoration(
+                        labelText: 'Тип участка *',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16, 
+                          vertical: isSmallScreen ? 12 : 14,
+                        ),
+                      ),
+                      items: _gardenTypes.map((String type) {
+                        return DropdownMenuItem(
+                          value: type,
+                          child: Text(type),
+                        );
+                      }).toList(),
+                      onChanged: (String? value) {
+                        setState(() {
+                          _selectedGardenType = value;
+                        });
+                      },
+                      validator: (value) {
+                        if (value == null) {
+                          return 'Пожалуйста, выберите тип участка';
+                        }
+                        return null;
+                      },
+                    ),
+                    SizedBox(height: isSmallScreen ? 20 : 24),
+
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _submitForm,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          disabledBackgroundColor: Colors.green.withOpacity(0.5),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                            : const Text(
+                          'Сохранить',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

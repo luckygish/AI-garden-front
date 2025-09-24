@@ -177,14 +177,19 @@ class _CatalogScreenState extends State<CatalogScreen> {
               const SizedBox(height: 20),
 
               ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   Navigator.pop(context);
-                  Navigator.push(
+                  final result = await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => AddPlantScreen(plant: plant, user: widget.user),
                     ),
                   );
+                  
+                  // Если растение было успешно добавлено, возвращаемся к списку сада
+                  if (result != null && mounted) {
+                    Navigator.pop(context, result);
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,

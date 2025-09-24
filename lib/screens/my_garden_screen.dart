@@ -168,7 +168,7 @@ class _MyGardenScreenState extends State<MyGardenScreen> {
           const SizedBox(height: 10),
           const Text('Добавьте первое растение, чтобы начать', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
           const SizedBox(height: 20),
-          ElevatedButton(onPressed: () { _navigateToCatalog(context); }, child: const Text('Добавить растение')),
+          ElevatedButton(onPressed: () => _navigateToCatalog(context), child: const Text('Добавить растение')),
         ],
       ),
     );
@@ -229,12 +229,22 @@ class _MyGardenScreenState extends State<MyGardenScreen> {
     );
   }
 
-  void _navigateToCatalog(BuildContext context) {
-    Navigator.push(
+  void _navigateToCatalog(BuildContext context) async {
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => CatalogScreen(user: widget.user),
       ),
-    ).then((_) => _loadPlants());
+    );
+    
+    // Если растение было добавлено, добавляем его в локальный список
+    if (result != null && result is Plant) {
+      setState(() {
+        plants.add(result);
+      });
+    } else {
+      // Иначе перезагружаем весь список
+      _loadPlants();
+    }
   }
 }

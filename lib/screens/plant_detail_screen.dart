@@ -26,8 +26,22 @@ class PlantDetailScreen extends StatefulWidget {
 }
 
 class _PlantDetailScreenState extends State<PlantDetailScreen> {
+  List<String> _completedOperations = [];
+  bool _historyLoaded = false;
 
   @override
+  void initState() {
+    super.initState();
+    _loadCareHistory();
+  }
+
+  Future<void> _loadCareHistory() async {
+    final completedOps = await CareHistoryService.getCompletedOperations();
+    setState(() {
+      _completedOperations = completedOps;
+      _historyLoaded = true;
+    });
+  }
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
@@ -434,10 +448,11 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
   }
 
   Widget _buildCareHistory() {
-    // Получаем выполненные операции из сервиса
-    final completedOperations = CareHistoryService.getCompletedOperations();
-    
-    if (completedOperations.isEmpty) {
+    if (!_historyLoaded) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_completedOperations.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -473,7 +488,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        ...completedOperations.map((operationId) => _buildHistoryItem(operationId, context)),
+        ..._completedOperations.map((operationId) => _buildHistoryItem(operationId, context)),
       ],
     );
   }

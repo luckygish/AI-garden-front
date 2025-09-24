@@ -3,7 +3,9 @@ import '../models/user.dart';
 import '../models/care_event.dart';
 import '../models/plant.dart';
 import '../services/upcoming_events_service.dart';
+import '../api/api_service.dart';
 import 'care_guide_screen.dart';
+import 'care_plan_details_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
   final User user;
@@ -18,6 +20,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _notificationsEnabled = true;
   TimeOfDay _notificationTime = const TimeOfDay(hour: 9, minute: 0);
   List<CareEvent> _upcomingEvents = [];
+  List<Plant> _plants = []; // Добавляем список растений
   bool _loadingEvents = true;
 
   @override
@@ -33,41 +36,39 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     });
 
     try {
-      // Получаем список растений пользователя
-      // В реальном приложении это должно быть из API или локальной БД
-      final plants = <Plant>[
-        Plant(
-          id: '1',
-          name: 'Томат',
-          variety: 'Черри',
-          plantingDate: DateTime.now().subtract(const Duration(days: 30)),
-          growthStage: 'Вегетация',
-          imageUrl: '',
-          description: 'Помидоры черри для выращивания в теплице',
-          category: 'Овощи',
-          culture: 'Томат',
-        ),
-        Plant(
-          id: '2',
-          name: 'Огурец',
-          variety: 'Гибрид',
-          plantingDate: DateTime.now().subtract(const Duration(days: 20)),
-          growthStage: 'Цветение',
-          imageUrl: '',
-          description: 'Огурцы для выращивания в открытом грунте',
-          category: 'Овощи',
-          culture: 'Огурец',
-        ),
-      ];
-
-      final events = await UpcomingEventsService.getUpcomingEvents(widget.user, plants);
+      // Получаем реальный список растений пользователя из API
+      final plantsData = await ApiService.getUserPlants();
       
-      setState(() {
-        _upcomingEvents = events;
-        _loadingEvents = false;
-      });
+      // Преобразуем данные в объекты Plant
+      final plants = plantsData.map((data) => Plant(
+        id: (data['id'] ?? '').toString(),
+        name: (data['name'] ?? '').toString(),
+        variety: data['variety'] as String?,
+        plantingDate: DateTime.parse(data['plantingDate'] ?? DateTime.now().toIso8601String()),
+        growthStage: (data['growthStage'] ?? '').toString(),
+        imageUrl: (data['imageUrl'] ?? '').toString(),
+        description: (data['description'] ?? '').toString(),
+        category: (data['category'] ?? '').toString(),
+        culture: (data['culture'] ?? '').toString(),
+      )).toList();
+      
+      if (plants.isNotEmpty) {
+        final events = await UpcomingEventsService.getUpcomingEvents(widget.user, plants);
+        setState(() {
+          _upcomingEvents = events;
+          _plants = plants; // Сохраняем растения для навигации
+          _loadingEvents = false;
+        });
+      } else {
+        setState(() {
+          _upcomingEvents = [];
+          _plants = [];
+          _loadingEvents = false;
+        });
+      }
     } catch (e) {
       setState(() {
+        _upcomingEvents = [];
         _loadingEvents = false;
       });
     }
@@ -156,10 +157,29 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
+                    // Находим растение по ID из события
+                    final plant = _plants.firstWhere(
+                      (p) => p.id == event.plantId,
+                      orElse: () => Plant(
+                        id: event.plantId,
+                        name: 'Неизвестное растение',
+                        variety: null,
+                        plantingDate: DateTime.now(),
+                        growthStage: '',
+                        imageUrl: '',
+                        description: '',
+                        category: '',
+                        culture: '',
+                      ),
+                    );
+                    
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => CareGuideScreen(event: event),
+                        builder: (context) => CarePlanDetailsScreen(
+                          plant: plant,
+                          user: widget.user,
+                        ),
                       ),
                     );
                   },

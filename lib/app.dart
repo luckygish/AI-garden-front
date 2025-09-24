@@ -5,6 +5,8 @@ import 'screens/auth_screen.dart';
 import 'models/user.dart';
 import 'api/api_service.dart';
 import 'api/shared_prefs_service.dart';
+import 'services/care_history_service.dart';
+import 'services/pending_plants_service.dart';
 
 class App extends StatefulWidget {
   const App({super.key});
@@ -27,10 +29,13 @@ class _AppState extends State<App> {
 
   Future<void> _bootstrap() async {
     await ApiService.initialize();
+    await CareHistoryService.initialize(); // Инициализируем сервис истории ухода
+    await PendingPlantsService.initialize(); // Инициализируем сервис ожидающих растений
+    
     final token = await SharedPrefsService.getAuthToken();
     final userData = await SharedPrefsService.getUserData();
     final onboardingCompleted = await SharedPrefsService.isOnboardingCompleted();
-    
+
     setState(() {
       _authenticated = token != null;
       _currentUser = userData; // Восстанавливаем данные пользователя

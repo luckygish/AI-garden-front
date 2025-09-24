@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../models/plant.dart';
 import '../api/api_service.dart';
+import '../widgets/plant_creation_loader.dart';
+import '../services/pending_plants_service.dart';
 
 class AddPlantScreen extends StatefulWidget {
   final Plant? plant;
@@ -60,55 +62,64 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
         elevation: 0,
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isSmallScreen = constraints.maxHeight < 600;
+            final padding = isSmallScreen ? 16.0 : 20.0;
+            
+            return SingleChildScrollView(
+              padding: EdgeInsets.all(padding),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(height: isSmallScreen ? 8 : 20),
 
-              // Название/культура растения
-              _buildSectionTitle('Культура (название растения)'),
-              const SizedBox(height: 8),
-              _buildTextField(
-                controller: _nameController,
-                hintText: 'Например, Огурец',
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Введите название культуры';
-                  }
-                  return null;
-                },
+                    // Название/культура растения
+                    _buildSectionTitle('Культура (название растения)'),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      controller: _nameController,
+                      hintText: 'Например, Огурец',
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Введите название культуры';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Сорт
+                    _buildSectionTitle('Сорт (необязательно)'),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      controller: _varietyController,
+                      hintText: 'Например, Зозуля',
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Дата посадки
+                    _buildSectionTitle('Дата посадки/посева'),
+                    const SizedBox(height: 8),
+                    _buildDateField(),
+                    const SizedBox(height: 24),
+
+                    // Стадия роста
+                    _buildSectionTitle('Стадия роста (необязательно)'),
+                    const SizedBox(height: 8),
+                    _buildGrowthStageField(),
+                    const SizedBox(height: 40),
+
+                    // Кнопка сохранения
+                    _buildSaveButton(context),
+                  ],
+                ),
               ),
-              const SizedBox(height: 24),
-
-              // Сорт
-              _buildSectionTitle('Сорт (необязательно)'),
-              const SizedBox(height: 8),
-              _buildTextField(
-                controller: _varietyController,
-                hintText: 'Например, Зозуля',
-              ),
-              const SizedBox(height: 24),
-
-              // Дата посадки
-              _buildSectionTitle('Дата посадки/посева'),
-              const SizedBox(height: 8),
-              _buildDateField(),
-              const SizedBox(height: 24),
-
-              // Стадия роста
-              _buildSectionTitle('Стадия роста (необязательно)'),
-              const SizedBox(height: 8),
-              _buildGrowthStageField(),
-              const SizedBox(height: 40),
-
-              // Кнопка сохранения
-              _buildSaveButton(context),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
@@ -330,18 +341,43 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
     }
 
     setState(() => _submitting = true);
+    
+    // Показываем лоадер с настройками времени
+    PlantCreationLoaderUtils.show(
+      context: context,
+      plantName: _nameController.text.trim(),
+      minDisplayTime: const Duration(seconds: 3), // Минимум 3 секунды
+      maxDisplayTime: const Duration(minutes: 2), // Максимум 2 минуты
+      onCancel: () {
+        setState(() => _submitting = false);
+        Navigator.of(context).pop(); // Закрываем лоадер
+      },
+    );
+
+    // Маппинг синонимов для корректного поиска плана ухода
+    String culture = _nameController.text.trim();
+    culture = _mapCultureToCanonical(culture);
+
     try {
-      // Маппинг синонимов для корректного поиска плана ухода
-      String culture = _nameController.text.trim();
-      culture = _mapCultureToCanonical(culture);
       
-      final created = await ApiService.addPlant(
+      // Обновляем прогресс
+      PlantCreationLoaderUtils.updateProgress(0.1, 'Проверяем базу данных...');
+      
+      // Добавляем промежуточные обновления прогресса
+      PlantCreationLoaderUtils.updateProgress(0.2, 'Подготавливаем данные...');
+      
+      // Выполняем запрос с повторными попытками
+      final created = await _addPlantWithRetry(
         culture: culture,
         name: _nameController.text.trim(),
         variety: _varietyController.text.trim().isNotEmpty ? _varietyController.text.trim() : null,
         plantingDate: _plantingDate!,
         growthStage: _selectedGrowthStage,
       );
+
+      // Обновляем прогресс после успешного сохранения
+      PlantCreationLoaderUtils.updateProgress(0.9, 'Сохраняем в базу данных...');
+      PlantCreationLoaderUtils.updateProgress(1.0, 'Растение успешно добавлено!');
 
       // Собираем локальную модель для UI, используя id с бэкенда
       final plant = Plant(
@@ -357,6 +393,15 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
       );
 
       if (!mounted) return;
+      
+      // Ждем пока лоадер можно будет закрыть
+      while (!PlantCreationLoaderUtils.canClose) {
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+      
+      // Закрываем лоадер
+      PlantCreationLoaderUtils.hide(context);
+      
       Navigator.pop(context, plant);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -370,10 +415,20 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
       // Более детальная обработка ошибок
       if (e.toString().contains('План ухода не найден')) {
         errorMessage = 'План ухода для данной культуры не найден. Попробуйте другое название растения.';
-      } else if (e.toString().contains('Ошибка подключения')) {
+      } else if (e.toString().contains('timeout') || e.toString().contains('TimeoutException') || e.toString().contains('Таймаут')) {
+        errorMessage = 'Запрос в работе, растение скоро появится в вашем саду';
+        // Добавляем растение в список ожидающих
+        await _addToPendingPlants(culture, _nameController.text.trim());
+      } else if (e.toString().contains('Не удалось добавить растение после')) {
+        errorMessage = 'Запрос в работе, растение скоро появится в вашем саду';
+        // Добавляем растение в список ожидающих
+        await _addToPendingPlants(culture, _nameController.text.trim());
+      } else if (e.toString().contains('Connection') || e.toString().contains('Ошибка подключения')) {
         errorMessage = 'Проблема с подключением к серверу. Проверьте интернет-соединение.';
-      } else if (e.toString().contains('Таймаут')) {
-        errorMessage = 'Превышено время ожидания. Попробуйте еще раз.';
+      } else if (e.toString().contains('500') || e.toString().contains('Internal Server Error')) {
+        errorMessage = 'Ошибка сервера. Возможно, проблема с DeepSeek API';
+      } else if (e.toString().contains('DeepSeek')) {
+        errorMessage = 'Ошибка при обращении к DeepSeek API. Попробуйте позже';
       } else if (e.toString().contains('Сессия истекла')) {
         errorMessage = 'Сессия истекла. Пожалуйста, войдите в систему заново.';
       } else if (e.toString().contains('Культура не может быть пустой')) {
@@ -385,11 +440,27 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
       }
       
       if (mounted) {
+        // Обновляем прогресс при ошибке
+        PlantCreationLoaderUtils.updateProgress(0.0, 'Произошла ошибка: $errorMessage');
+        
+        // Ждем минимальное время перед закрытием
+        await Future.delayed(const Duration(seconds: 2));
+        
+        // Закрываем лоадер при ошибке
+        PlantCreationLoaderUtils.hide(context);
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
+            backgroundColor: errorMessage.contains('Запрос в работе') ? Colors.green : Colors.red,
+            duration: const Duration(seconds: 6),
+            action: SnackBarAction(
+              label: 'Повторить',
+              textColor: Colors.white,
+              onPressed: () {
+                _savePlant();
+              },
+            ),
           ),
         );
       }
@@ -445,5 +516,105 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
     
     String normalized = input.toLowerCase().trim();
     return cultureMap[normalized] ?? input; // Возвращаем каноническое название или исходное
+  }
+
+  /// Выполняет добавление растения с повторными попытками при ошибках
+  Future<Map<String, dynamic>> _addPlantWithRetry({
+    required String culture,
+    required String name,
+    String? variety,
+    required DateTime plantingDate,
+    String? growthStage,
+  }) async {
+    const int maxRetries = 3;
+    const Duration retryDelay = Duration(seconds: 5);
+    
+    Exception? lastException;
+    
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Обновляем прогресс с информацией о попытке
+        if (attempt > 1) {
+          PlantCreationLoaderUtils.updateProgress(
+            0.3 + (attempt - 1) * 0.1, 
+            'ИИ-модель работает медленно. Продолжаем обработку...'
+          );
+        } else {
+          PlantCreationLoaderUtils.updateProgress(0.3, 'Обращаемся к ИИ-модели...');
+        }
+        
+        // Выполняем запрос
+        final result = await ApiService.addPlant(
+          culture: culture,
+          name: name,
+          variety: variety,
+          plantingDate: plantingDate,
+          growthStage: growthStage,
+        );
+        
+        // Если успешно, возвращаем результат
+        return result;
+        
+      } catch (e) {
+        lastException = e as Exception;
+        
+        // Проверяем, стоит ли повторять попытку
+        bool shouldRetry = _shouldRetry(e);
+        
+        if (attempt < maxRetries && shouldRetry) {
+          // Обновляем прогресс с информацией о повторной попытке
+          PlantCreationLoaderUtils.updateProgress(
+            0.2 + attempt * 0.1,
+            'ИИ-модель работает медленно. Продолжаем обработку...'
+          );
+          
+          // Ждем перед следующей попыткой
+          await Future.delayed(retryDelay);
+        } else {
+          // Если это последняя попытка или не стоит повторять, выбрасываем исключение
+          break;
+        }
+      }
+    }
+    
+    // Если все попытки неудачны, выбрасываем последнее исключение
+    throw lastException ?? Exception('Не удалось добавить растение после $maxRetries попыток');
+  }
+
+  /// Определяет, стоит ли повторять попытку при данной ошибке
+  bool _shouldRetry(Exception e) {
+    final errorString = e.toString().toLowerCase();
+    
+    // Повторяем при ошибках, связанных с перегрузкой или временными проблемами
+    return errorString.contains('timeout') ||
+           errorString.contains('таймаут') ||
+           errorString.contains('connection') ||
+           errorString.contains('подключение') ||
+           errorString.contains('500') ||
+           errorString.contains('503') ||
+           errorString.contains('502') ||
+           errorString.contains('504') ||
+           errorString.contains('deepseek') ||
+           errorString.contains('перегружен') ||
+           errorString.contains('overloaded') ||
+           errorString.contains('rate limit') ||
+           errorString.contains('too many requests');
+  }
+
+  /// Добавляет растение в список ожидающих
+  Future<void> _addToPendingPlants(String culture, String plantName) async {
+    try {
+      // Генерируем временный ID для отслеживания
+      final tempPlantId = 'temp_${DateTime.now().millisecondsSinceEpoch}_${plantName.hashCode}';
+      
+      await PendingPlantsService.addPendingPlant(
+        plantId: tempPlantId,
+        plantName: plantName,
+        culture: culture,
+      );
+    } catch (e) {
+      // Игнорируем ошибки при добавлении в список ожидающих
+      print('Ошибка добавления в список ожидающих: $e');
+    }
   }
 }

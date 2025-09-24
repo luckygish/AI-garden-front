@@ -3,6 +3,7 @@ import '../models/user.dart';
 import 'my_garden_screen.dart';
 import 'calendar_screen.dart';
 import 'profile_screen.dart';
+import '../services/plant_notification_service.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final User user;
@@ -31,6 +32,18 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       CalendarScreen(user: widget.user),
       ProfileScreen(user: widget.user, onLogout: widget.onLogout),
     ];
+    
+    // Запускаем проверку ожидающих растений
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      PlantNotificationService.startPeriodicCheck(context);
+    });
+  }
+
+  @override
+  void dispose() {
+    // Останавливаем проверку при закрытии экрана
+    PlantNotificationService.stopPeriodicCheck();
+    super.dispose();
   }
 
   @override

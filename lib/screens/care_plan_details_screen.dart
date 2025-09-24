@@ -25,6 +25,14 @@ class _CarePlanDetailsScreenState extends State<CarePlanDetailsScreen> {
   void initState() {
     super.initState();
     _loadPlan();
+    _loadCompletedOperations();
+  }
+
+  Future<void> _loadCompletedOperations() async {
+    final completedOps = CareHistoryService.getCompletedOperations();
+    setState(() {
+      _completedOperations = completedOps.toSet();
+    });
   }
 
   Future<void> _loadPlan() async {
@@ -213,7 +221,7 @@ class _CarePlanDetailsScreenState extends State<CarePlanDetailsScreen> {
     
     // Создаем уникальный ID для операции
     final String operationId = _generateOperationId(op);
-    final bool isCompleted = CareHistoryService.isOperationCompleted(operationId);
+    final bool isCompleted = _completedOperations.contains(operationId);
 
     return Card(
       elevation: 0,
@@ -262,25 +270,27 @@ class _CarePlanDetailsScreenState extends State<CarePlanDetailsScreen> {
                   scale: 1.15,
                   child: Checkbox(
                     value: isCompleted,
-                    onChanged: (bool? value) {
-                      setState(() {
-                        if (value == true) {
-                          // Сохраняем детали операции для перехода
-                          CareHistoryService.addCompletedOperation(
-                            operationId,
-                            details: {
-                              'type': type,
-                              'fase': fase,
-                              'period': period,
-                              'description': desc,
-                              'materials': materials,
-                            },
-                          );
-                        } else {
-                          CareHistoryService.removeCompletedOperation(operationId);
-                        }
-                      });
-                    },
+                        onChanged: (bool? value) async {
+                          setState(() {
+                            if (value == true) {
+                              _completedOperations.add(operationId);
+                              // Сохраняем детали операции для перехода
+                              CareHistoryService.addCompletedOperation(
+                                operationId,
+                                details: {
+                                  'type': type,
+                                  'fase': fase,
+                                  'period': period,
+                                  'description': desc,
+                                  'materials': materials,
+                                },
+                              );
+                            } else {
+                              _completedOperations.remove(operationId);
+                              CareHistoryService.removeCompletedOperation(operationId);
+                            }
+                          });
+                        },
                     activeColor: Colors.green,
                   ),
                 ),
