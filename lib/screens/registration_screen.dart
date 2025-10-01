@@ -95,6 +95,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       controller: _passwordController,
                       decoration: InputDecoration(
                         labelText: 'Пароль *',
+                        hintText: '8-12 символов, буквы A-z и цифры',
+                        hintStyle: TextStyle(fontSize: 12, color: Colors.grey[600]),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -104,12 +106,25 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         ),
                       ),
                       obscureText: true,
+                      maxLength: 12,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Введите пароль';
                         }
-                        if (value.length < 6) {
-                          return 'Пароль должен быть не менее 6 символов';
+                        if (value.length < 8) {
+                          return 'Пароль должен содержать минимум 8 символов';
+                        }
+                        if (value.length > 12) {
+                          return 'Пароль должен содержать максимум 12 символов';
+                        }
+                        if (!RegExp(r'[A-Z]').hasMatch(value)) {
+                          return 'Пароль должен содержать хотя бы одну заглавную букву';
+                        }
+                        if (!RegExp(r'[a-z]').hasMatch(value)) {
+                          return 'Пароль должен содержать хотя бы одну строчную букву';
+                        }
+                        if (!RegExp(r'\d').hasMatch(value)) {
+                          return 'Пароль должен содержать хотя бы одну цифру';
                         }
                         return null;
                       },

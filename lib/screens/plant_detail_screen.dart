@@ -452,7 +452,12 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_completedOperations.isEmpty) {
+    // Фильтруем операции только для текущего растения
+    final plantOperations = _completedOperations
+        .where((operationId) => operationId.startsWith('${widget.plant.id}_'))
+        .toList();
+
+    if (plantOperations.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -488,7 +493,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        ..._completedOperations.map((operationId) => _buildHistoryItem(operationId, context)),
+        ...plantOperations.map((operationId) => _buildHistoryItem(operationId, context)),
       ],
     );
   }

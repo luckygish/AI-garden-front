@@ -281,7 +281,7 @@ class _PlantCreationLoaderState extends State<PlantCreationLoader>
               TextButton(
                 onPressed: widget.onCancel,
                 child: const Text(
-                  'Отменить',
+                  'Закрыть',
                   style: TextStyle(
                     color: Colors.grey,
                     fontSize: 14,

@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/app_config.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://10.0.2.2:8080/api'; // Для эмулятора Android
-  // static const String baseUrl = 'http://localhost:8080/api'; // Для iOS
+  // Базовый URL из конфигурации
+  static String get baseUrl => AppConfig.baseUrl;
+  
   static String? authToken;
   static String? userId;
 
@@ -13,6 +15,9 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     authToken = prefs.getString('auth_token');
     userId = prefs.getString('user_id');
+    
+    // Логируем полную конфигурацию в режиме отладки
+    AppConfig.logFullConfig();
   }
 
   static Future<void> _saveAuthData(String token, String id) async {
@@ -34,21 +39,34 @@ class ApiService {
       'Content-Type': 'application/json',
       if (requireAuth && authToken != null) 'Authorization': 'Bearer $authToken',
     };
+    
+    // Детальное логирование
+    print('🌐 API Request: $method $url');
+    print('📋 Headers: $headers');
+    if (body != null) {
+      print('📦 Body: ${json.encode(body)}');
+    }
+    
     try {
       late http.Response response;
       switch (method.toUpperCase()) {
         case 'GET':
-          response = await http.get(url, headers: headers).timeout(const Duration(minutes: 2));
+          response = await http.get(url, headers: headers).timeout(AppConfig.requestTimeout);
           break;
         case 'DELETE':
-          response = await http.delete(url, headers: headers).timeout(const Duration(minutes: 2));
+          response = await http.delete(url, headers: headers).timeout(AppConfig.requestTimeout);
           break;
         case 'POST':
         default:
           response = await http
               .post(url, headers: headers, body: body != null ? json.encode(body) : null)
-              .timeout(const Duration(minutes: 2));
+              .timeout(AppConfig.requestTimeout);
       }
+      
+      // Логирование ответа
+      print('📡 Response Status: ${response.statusCode}');
+      print('📄 Response Body: ${response.body}');
+      
       if (response.statusCode == 401 || response.statusCode == 403) {
         await _clearAuthData();
         throw Exception('Сессия истекла. Пожалуйста, войдите снова.');
@@ -63,9 +81,17 @@ class ApiService {
       }
       return response;
     } on http.ClientException catch (e) {
+      print('❌ Client Exception: ${e.message}');
+      print('🔗 URL: $url');
       throw Exception('Ошибка подключения: ${e.message}');
-    } on TimeoutException catch (_) {
+    } on TimeoutException catch (e) {
+      print('⏰ Timeout Exception: ${e.message}');
+      print('🔗 URL: $url');
       throw Exception('Таймаут запроса');
+    } catch (e) {
+      print('💥 Unexpected Exception: $e');
+      print('🔗 URL: $url');
+      rethrow;
     }
   }
 

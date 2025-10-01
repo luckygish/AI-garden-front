@@ -322,13 +322,14 @@ class _CarePlanDetailsScreenState extends State<CarePlanDetailsScreen> {
   }
 
   String _generateOperationId(Map<String, dynamic> op) {
-    // Создаем уникальный ID на основе основных полей операции
+    // Создаем уникальный ID на основе plant.id и полей операции
+    // Это гарантирует, что операции разных растений будут иметь разные ID
     final String type = (op['type'] ?? '').toString();
     final String fase = (op['fase'] ?? '').toString();
     final String period = (op['period'] ?? '').toString();
-    final String desc = (op['description'] ?? '').toString();
     
-    return '${type}_${fase}_${period}_${desc}'.hashCode.toString();
+    // Используем формат совместимый с UpcomingEventsService
+    return '${widget.plant.id}_${type}_${fase}';
   }
 
 

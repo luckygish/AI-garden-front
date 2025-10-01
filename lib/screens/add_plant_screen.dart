@@ -351,6 +351,27 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
       onCancel: () {
         setState(() => _submitting = false);
         Navigator.of(context).pop(); // Закрываем лоадер
+        
+        // Показываем уведомление о продолжении работы в фоне
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle_outline, color: Colors.white),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Растение добавляется в фоновом режиме и скоро появится в вашем саду',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green[700],
+            duration: const Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       },
     );
 

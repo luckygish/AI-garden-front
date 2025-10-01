@@ -20,8 +20,8 @@ class _FeedingScheduleScreenState extends State<FeedingScheduleScreen> {
   List<Map<String, dynamic>> _schedule = [];
 
   final List<String> _months = [
-    'АПРЕЛЬ', 'МАЙ', 'ИЮНЬ', 'ИЮЛЬ', 
-    'АВГУСТ', 'СЕНТЯБРЬ', 'ОКТЯБРЬ', 'НОЯБРЬ'
+    'АПР', 'МАЙ', 'ИЮН', 'ИЮЛ', 
+    'АВГ', 'СЕН', 'ОКТ', 'НОЯ'
   ];
 
   @override
@@ -215,22 +215,24 @@ class _FeedingScheduleScreenState extends State<FeedingScheduleScreen> {
               children: [
                 // Левая колонка с типом операции
                 Expanded(
-                  flex: 2,
+                  flex: 3,
                   child: Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(10),
                     decoration: const BoxDecoration(
                       border: Border(
                         right: BorderSide(color: Color(0xFFE0E0E0)),
                       ),
                     ),
                     child: const Text(
-                      'ТИП ОПЕРАЦИИ',
+                      'ТИП\nОПЕРАЦИИ',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 9,
                         fontWeight: FontWeight.bold,
                         color: Colors.black87,
+                        height: 1.2,
                       ),
                       textAlign: TextAlign.center,
+                      maxLines: 2,
                     ),
                   ),
                 ),
@@ -241,7 +243,7 @@ class _FeedingScheduleScreenState extends State<FeedingScheduleScreen> {
                     children: _months.map((month) => 
                       Expanded(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 2),
                           decoration: const BoxDecoration(
                             border: Border(
                               right: BorderSide(color: Color(0xFFE0E0E0)),
@@ -250,11 +252,13 @@ class _FeedingScheduleScreenState extends State<FeedingScheduleScreen> {
                           child: Text(
                             month,
                             style: const TextStyle(
-                              fontSize: 10,
+                              fontSize: 9,
                               fontWeight: FontWeight.bold,
                               color: Colors.black87,
                             ),
                             textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.visible,
                           ),
                         ),
                       ),
@@ -302,9 +306,9 @@ class _FeedingScheduleScreenState extends State<FeedingScheduleScreen> {
         children: [
           // Тип операции
           Expanded(
-            flex: 2,
+            flex: 3,
             child: Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
               decoration: const BoxDecoration(
                 border: Border(
                   right: BorderSide(color: Color(0xFFE0E0E0)),
@@ -313,11 +317,14 @@ class _FeedingScheduleScreenState extends State<FeedingScheduleScreen> {
               child: Text(
                 type,
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w500,
                   color: Colors.black87,
                   height: 1.2,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
               ),
             ),
           ),
