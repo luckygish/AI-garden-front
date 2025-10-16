@@ -24,6 +24,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }).toList();
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -42,10 +43,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
         elevation: 0,
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list, color: Colors.black),
-            onPressed: _showFilterDialog,
-          ),
+          // IconButton(
+          //   icon: const Icon(Icons.filter_list, color: Colors.black),
+          //   onPressed: _showFilterDialog,
+          // ),
         ],
       ),
       body: Column(
@@ -329,28 +330,28 @@ class _CalendarScreenState extends State<CalendarScreen> {
     });
   }
 
-  void _showFilterDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Фильтр'),
-        content: const Text('Выберите растения для отображения в календаре'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // Здесь будет логика фильтрации
-            },
-            child: const Text('Применить'),
-          ),
-        ],
-      ),
-    );
-  }
+  // void _showFilterDialog() {
+  //   showDialog(
+  //     context: context,
+  //     builder: (context) => AlertDialog(
+  //       title: const Text('Фильтр'),
+  //       content: const Text('Выберите растения для отображения в календаре'),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () => Navigator.pop(context),
+  //           child: const Text('Отмена'),
+  //         ),
+  //         TextButton(
+  //           onPressed: () {
+  //             Navigator.pop(context);
+  //             // Здесь будет логика фильтрации
+  //           },
+  //           child: const Text('Применить'),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   void _generateCalendar() {
     // Здесь будет логика генерации/обновления календаря

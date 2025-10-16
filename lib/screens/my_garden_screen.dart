@@ -55,7 +55,14 @@ class _MyGardenScreenState extends State<MyGardenScreen> {
       setState(() { plants = mapped; _loading = false; });
     } catch (e) {
       if (!mounted) return;
-      setState(() { _error = e.toString(); _loading = false; });
+      
+      // Если ошибка связана с аутентификацией, показываем специальное сообщение
+      String errorMessage = e.toString();
+      if (errorMessage.contains('Сессия истекла') || errorMessage.contains('User not authenticated')) {
+        errorMessage = 'Сессия истекла. Пожалуйста, войдите снова.';
+      }
+      
+      setState(() { _error = errorMessage; _loading = false; });
     }
   }
 
@@ -138,6 +145,8 @@ class _MyGardenScreenState extends State<MyGardenScreen> {
   Widget _buildBody(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) {
+      bool isAuthError = _error!.contains('Сессия истекла') || _error!.contains('User not authenticated');
+      
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
@@ -146,9 +155,19 @@ class _MyGardenScreenState extends State<MyGardenScreen> {
             children: [
               const Icon(Icons.error_outline, color: Colors.red, size: 40),
               const SizedBox(height: 8),
-              Text(_error!, style: const TextStyle(color: Colors.red)),
+              Text(_error!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
               const SizedBox(height: 8),
-              ElevatedButton(onPressed: _loadPlants, child: const Text('Повторить')),
+              if (isAuthError) ...[
+                ElevatedButton(
+                  onPressed: () {
+                    // Переходим к экрану входа
+                    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                  }, 
+                  child: const Text('Войти в приложение')
+                ),
+              ] else ...[
+                ElevatedButton(onPressed: _loadPlants, child: const Text('Повторить')),
+              ],
             ],
           ),
         ),

@@ -7,11 +7,19 @@ class AppConfig {
   static const String _cloudUrl = 'http://193.227.240.20:8080/api'; // Облачный сервер reg.ru
   static const String _productionUrl = 'http://193.227.240.20:8080/api'; // Облачный сервер для продакшена
   
+  // Переменная для принудительного выбора URL (можно задать через переменные окружения)
+  static const String? _forcedUrl = null; // Например: 'http://10.0.2.2:8080/api'
+  
   // Текущий базовый URL
   static String get baseUrl {
+    // Если принудительно задан URL, используем его
+    if (_forcedUrl != null) {
+      return _forcedUrl!;
+    }
+    
     if (kDebugMode) {
-      // В режиме отладки используем облачный сервер для тестирования
-      return _cloudUrl;
+      // В режиме отладки используем локальный сервер для разработки
+      return _localUrl;
     } else {
       // В релизе используем облачный сервер
       return _productionUrl;
@@ -50,6 +58,9 @@ class AppConfig {
       print('📱 Platform: ${defaultTargetPlatform.name}');
       print('⏱️ Request Timeout: ${requestTimeout.inSeconds}s');
       print('🔌 Connection Timeout: ${connectionTimeout.inSeconds}s');
+      if (_forcedUrl != null) {
+        print('🔒 Forced URL: $_forcedUrl');
+      }
       print('==================');
     }
   }

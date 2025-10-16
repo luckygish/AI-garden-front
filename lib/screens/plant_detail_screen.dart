@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/plant.dart';
 import '../models/care_event.dart';
 import '../models/user.dart';
 import '../services/care_history_service.dart';
+import '../utils/plant_icons.dart';
+import '../api/api_service.dart';
 import 'feeding_schedule_screen.dart';
 import 'care_guide_screen.dart';
 import 'plant_usage_screen.dart';
@@ -28,11 +32,15 @@ class PlantDetailScreen extends StatefulWidget {
 class _PlantDetailScreenState extends State<PlantDetailScreen> {
   List<String> _completedOperations = [];
   bool _historyLoaded = false;
+  bool _loadingDescription = false;
+  String? _plantDescription;
+  Map<String, dynamic>? _varietyData;
 
   @override
   void initState() {
     super.initState();
     _loadCareHistory();
+    _loadSavedVarietyData();
   }
 
   Future<void> _loadCareHistory() async {
@@ -42,6 +50,242 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
       _historyLoaded = true;
     });
   }
+
+  Future<void> _loadPlantDescription() async {
+    String? variety = widget.plant.variety;
+    
+    // Проверяем, заполнен ли сорт
+    if (variety == null || variety.isEmpty) {
+      final result = await _showVarietyDialog();
+      if (result == null) return;
+      variety = result;
+    }
+
+    setState(() {
+      _loadingDescription = true;
+    });
+
+    try {
+      // Вызываем API для получения описания сорта
+      final descriptionData = await ApiService.getOrCreateVarietyDescription(
+        culture: widget.plant.name,
+        variety: variety!, // variety не может быть null здесь, так как мы проверили выше
+      );
+      
+      // Отладочная информация
+      print('📊 Получены данные сорта: $descriptionData');
+      
+      // Сохраняем данные в SharedPreferences
+      await _saveVarietyData(descriptionData);
+      
+      setState(() {
+        _varietyData = descriptionData; // Сохраняем полные данные для структурированного отображения
+        _loadingDescription = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Описание сорта загружено'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      setState(() {
+        _loadingDescription = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка загрузки описания: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<String?> _showVarietyDialog() async {
+    final TextEditingController varietyController = TextEditingController();
+    
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Укажите сорт'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Для загрузки подробного описания необходимо указать сорт растения.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: varietyController,
+              decoration: const InputDecoration(
+                labelText: 'Сорт растения',
+                hintText: 'Например, Титан',
+                border: OutlineInputBorder(),
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (varietyController.text.trim().isNotEmpty) {
+                Navigator.pop(context, varietyController.text.trim());
+              }
+            },
+            child: const Text('Загрузить'),
+          ),
+        ],
+      ),
+    );
+
+    return result;
+  }
+
+  /// Загружает сохраненные данные сорта из SharedPreferences
+  Future<void> _loadSavedVarietyData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final plantId = widget.plant.id;
+      final savedDataJson = prefs.getString('variety_data_$plantId');
+      
+      if (savedDataJson != null) {
+        final savedData = json.decode(savedDataJson) as Map<String, dynamic>;
+        setState(() {
+          _varietyData = savedData;
+        });
+        print('💾 Загружены сохраненные данные сорта для растения $plantId');
+      }
+    } catch (e) {
+      print('❌ Ошибка загрузки сохраненных данных сорта: $e');
+    }
+  }
+
+  /// Сохраняет данные сорта в SharedPreferences
+  Future<void> _saveVarietyData(Map<String, dynamic> data) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final plantId = widget.plant.id;
+      final dataJson = json.encode(data);
+      await prefs.setString('variety_data_$plantId', dataJson);
+      print('💾 Данные сорта сохранены для растения $plantId');
+    } catch (e) {
+      print('❌ Ошибка сохранения данных сорта: $e');
+    }
+  }
+
+
+  String? _formatDiseaseResistance(dynamic diseaseResistance) {
+    if (diseaseResistance == null) return null;
+    
+    if (diseaseResistance is List && diseaseResistance.isNotEmpty) {
+      return diseaseResistance.join(', ');
+    }
+    
+    return diseaseResistance.toString();
+  }
+
+  Widget _buildVarietyInfoCard() {
+    print('🎯 _buildVarietyInfoCard вызван, _varietyData = $_varietyData');
+    if (_varietyData == null) {
+      print('❌ _varietyData is null, возвращаем SizedBox.shrink()');
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Заголовок с названием культуры и сорта
+        if (_varietyData!['culture'] != null || _varietyData!['variety'] != null) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.green[100],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '${_varietyData!['culture'] ?? ''} ${_varietyData!['variety'] ?? ''}'.trim(),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // Основное описание
+        if (_varietyData!['description'] != null && _varietyData!['description'] != 'Описание сорта недоступно') ...[
+          Text(
+            _varietyData!['description'],
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.4,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // Характеристики сорта
+        _buildInfoRow('Срок созревания', _varietyData!['ripeningPeriod'], Icons.schedule),
+        _buildInfoRow('Высота растения', _varietyData!['plantHeight'], Icons.height),
+        _buildInfoRow('Масса плода', _varietyData!['fruitWeight'], Icons.scale),
+        _buildInfoRow('Урожайность', _varietyData!['yield'], Icons.eco),
+        _buildInfoRow('Устойчивость к болезням', _formatDiseaseResistance(_varietyData!['diseaseResistance']), Icons.shield),
+        _buildInfoRow('Условия выращивания', _varietyData!['growingConditions'], Icons.agriculture),
+      ],
+    );
+  }
+
+  Widget _buildInfoRow(String label, dynamic value, IconData icon) {
+    // Отладочная информация
+    print('🔍 _buildInfoRow: $label = $value (${value.runtimeType})');
+    
+    if (value == null || value.toString().trim().isEmpty || 
+        value.toString().contains('Не указан') || 
+        value.toString().contains('Не указана')) {
+      print('❌ Поле $label скрыто: значение = $value');
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: Colors.green),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$label:',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value.toString(),
+                  style: const TextStyle(fontSize: 13, color: Colors.black87),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
@@ -119,27 +363,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                   ),
                 ],
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(30),
-                child: widget.plant.imageUrl.endsWith('.svg') 
-                  ? SvgPicture.asset(
-                      widget.plant.imageUrl,
-                      width: 50,
-                      height: 50,
-                    )
-                  : Image.network(
-                      widget.plant.imageUrl,
-                      width: 50,
-                      height: 50,
-                      errorBuilder: (context, error, stackTrace) {
-                        return SvgPicture.asset(
-                          'lib/assets/images/plant_placeholder.svg',
-                          width: 50,
-                          height: 50,
-                        );
-                      },
-                    ),
-              ),
+              child: PlantIcons.getStyledIcon(widget.plant.name, size: 50),
             ),
           ),
           const SizedBox(width: 16),
@@ -173,22 +397,22 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                     color: Colors.grey,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.green[100],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'Стадия: ${widget.plant.growthStage}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.green,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
+                // const SizedBox(height: 4),
+                // Container(
+                //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                //   decoration: BoxDecoration(
+                //     color: Colors.green[100],
+                //     borderRadius: BorderRadius.circular(12),
+                //   ),
+                //   child: Text(
+                //     'Стадия: ${widget.plant.growthStage}',
+                //     style: const TextStyle(
+                //       fontSize: 12,
+                //       color: Colors.green,
+                //       fontWeight: FontWeight.w500,
+                //     ),
+                //   ),
+                // ),
               ],
             ),
           ),
@@ -326,12 +550,43 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
           ),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Text(
-              widget.plant.description,
-              style: const TextStyle(
-                fontSize: 14,
-                height: 1.4,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_varietyData != null) ...[
+                  // Структурированное отображение данных сорта
+                  _buildVarietyInfoCard(),
+                ] else ...[
+                  // Стандартное описание растения
+                  Text(
+                    widget.plant.description,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: (_loadingDescription || _varietyData != null) ? null : _loadPlantDescription,
+                  icon: _loadingDescription 
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.cloud_download, size: 16),
+                  label: const Text('Загрузить описание'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

@@ -159,11 +159,21 @@ class _LoginTabState extends State<_LoginTab> {
       widget.onSuccess(user);
     } catch (e) {
       if (!mounted) return;
+      String errorMessage = 'Ошибка входа';
+      if (e.toString().contains('Invalid credentials')) {
+        errorMessage = 'Неверный email или пароль';
+      } else if (e.toString().contains('Сессия истекла')) {
+        errorMessage = 'Сессия истекла. Пожалуйста, войдите снова';
+      } else {
+        errorMessage = 'Ошибка входа: $e';
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка входа: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
+
 }

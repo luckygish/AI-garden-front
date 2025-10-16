@@ -107,10 +107,10 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                     _buildDateField(),
                     const SizedBox(height: 24),
 
-                    // Стадия роста
-                    _buildSectionTitle('Стадия роста (необязательно)'),
-                    const SizedBox(height: 8),
-                    _buildGrowthStageField(),
+                    // Стадия роста - скрыто
+                    // _buildSectionTitle('Стадия роста (необязательно)'),
+                    // const SizedBox(height: 8),
+                    // _buildGrowthStageField(),
                     const SizedBox(height: 40),
 
                     // Кнопка сохранения
@@ -174,7 +174,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
           children: [
             Text(
               _plantingDate != null
-                  ? '${_plantingDate!.day}.${_plantingDate!.month}.${_plantingDate!.year}'
+                  ? '${_plantingDate!.day.toString().padLeft(2, '0')}.${_plantingDate!.month.toString().padLeft(2, '0')}.${_plantingDate!.year}'
                   : 'Выберите дату',
               style: TextStyle(
                 fontSize: 16,

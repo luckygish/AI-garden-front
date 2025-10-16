@@ -199,7 +199,7 @@ class _CarePlanDetailsScreenState extends State<CarePlanDetailsScreen> {
             color: Colors.black87,
           ),
         ),
-        initiallyExpanded: true,
+        initiallyExpanded: false,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),

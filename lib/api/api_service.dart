@@ -67,15 +67,23 @@ class ApiService {
       print('📡 Response Status: ${response.statusCode}');
       print('📄 Response Body: ${response.body}');
       
-      if (response.statusCode == 401 || response.statusCode == 403) {
+      if ((response.statusCode == 401 || response.statusCode == 403) && requireAuth) {
         await _clearAuthData();
         throw Exception('Сессия истекла. Пожалуйста, войдите снова.');
       }
       if (response.statusCode >= 400) {
         String message = 'Ошибка сервера';
         try {
-          final parsed = response.body.isNotEmpty ? json.decode(response.body) : null;
-          if (parsed is Map && parsed['message'] != null) message = parsed['message'];
+          // Для простых строковых ответов (как "Invalid credentials")
+          if (response.body.isNotEmpty && !response.body.startsWith('{')) {
+            message = response.body;
+          } else if (response.body.isNotEmpty) {
+            // Для JSON ответов
+            final parsed = json.decode(response.body);
+            if (parsed is Map && parsed['message'] != null) {
+              message = parsed['message'];
+            }
+          }
         } catch (_) {}
         throw Exception(message);
       }
@@ -155,9 +163,17 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getUserPlants() async {
-    final response = await _request('GET', '/plants');
-    final list = json.decode(response.body) as List<dynamic>;
-    return list.map((e) => (e as Map).cast<String, dynamic>()).toList();
+    try {
+      final response = await _request('GET', '/plants');
+      final list = json.decode(response.body) as List<dynamic>;
+      return list.map((e) => (e as Map).cast<String, dynamic>()).toList();
+    } catch (e) {
+      // Если ошибка аутентификации, возвращаем пустой список
+      if (e.toString().contains('Сессия истекла') || e.toString().contains('User not authenticated')) {
+        return [];
+      }
+      rethrow;
+    }
   }
 
   static Future<void> deletePlant(String plantId) async {
@@ -224,4 +240,49 @@ class ApiService {
     final plant = await getPlantById(plantId);
     return plant != null;
   }
+
+  // Методы для работы с описаниями сортов растений
+  static Future<Map<String, dynamic>> getOrCreateVarietyDescription({
+    required String culture,
+    required String variety,
+  }) async {
+    final response = await _request('POST', '/plant-variety/description', body: {
+      'culture': culture,
+      'variety': variety,
+    }, requireAuth: false);
+    return json.decode(response.body) as Map<String, dynamic>;
+  }
+
+  static Future<bool> checkVarietyDescriptionExists({
+    required String culture,
+    required String variety,
+  }) async {
+    try {
+      final q = Uri(queryParameters: {
+        'culture': culture,
+        'variety': variety,
+      }).query;
+      final response = await _request('GET', '/plant-variety/description/exists?$q', requireAuth: false);
+      return json.decode(response.body) as bool;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> getVarietyDescription({
+    required String culture,
+    required String variety,
+  }) async {
+    try {
+      final q = Uri(queryParameters: {
+        'culture': culture,
+        'variety': variety,
+      }).query;
+      final response = await _request('GET', '/plant-variety/description?$q', requireAuth: false);
+      return json.decode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return null;
+    }
+  }
+
 }
